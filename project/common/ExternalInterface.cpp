@@ -102,7 +102,8 @@ static int haxe_callback(lua_State *l)
 	int num_args = lua_gettop(l);
 	AutoGCRoot *root = (AutoGCRoot *)lua_topointer(l, lua_upvalueindex(1));
 	int expected_args = lua_tonumber(l, lua_upvalueindex(2));
-	if (num_args != expected_args)
+	// functions made with Reflect.makeVarArgs (aka every hscript function) have an argument count of -1
+	if (expected_args >= 0 && num_args != expected_args)
 	{
 		printf("Expected %d arguments, received %d", expected_args, num_args);
 	}
