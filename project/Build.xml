@@ -64,7 +64,7 @@
 	<set name="SLIBEXT" value=".a" unless="windows"/>
 	<set name="SLIBEXT" value=".so" if="webos"/>
 
-	<target id="NDLL" output="${name_prefix}lua${debug_extra}${name_extra}" tool="linker" toolid="${ndll-tool}">
+	<target id="NDLL" output="${name_prefix}hxlua${debug_extra}${name_extra}" tool="linker" toolid="${ndll-tool}">
 		<outdir name="../ndll/${BINDIR}"/>
 		<ext value=".ndll" unless="mobile"/>
 		<files id="lua"/>

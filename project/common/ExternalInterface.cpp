@@ -18,10 +18,7 @@ extern "C" {
 
 vkind kind_lua_vm;
 
-// HACK!!! For some reason this isn't properly defined in neko...
-#if !(defined(IPHONE) || defined(ANDROID))
-#define val_fun_nargs(v)	((vfunction*)(v))->nargs
-#endif
+#define invalidhandle() hx_failure("invalid handle");
 
 // forward declarations
 int haxe_to_lua(value v, lua_State *l);
@@ -74,7 +71,7 @@ value lua_value_to_haxe(lua_State *l, int lua_v)
 	switch (lua_type(l, lua_v))
 	{
 		case LUA_TNIL:
-			v = alloc_null();
+			v = val_null;
 			break;
 		case LUA_TNUMBER:
 			n = lua_tonumber(l, lua_v);
@@ -181,7 +178,8 @@ int haxe_to_lua(value v, lua_State *l)
 			lua_pushcclosure(l, haxe_callback, 2);
 			break;
 		case valtArray:
-			haxe_array_to_lua(v, l);
+			//haxe_array_to_lua(v, l);
+			lua_pushnil(l);
 			break;
 		case valtAbstractBase: // should abstracts be handled??
 			printf("abstracts not supported");
@@ -205,6 +203,33 @@ static lua_State *lua_from_handle(value inHandle)
 	}
 	return NULL;
 }
+
+
+static value luahx_haxe_to_lua(value inHandle, value v)
+{
+	
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		return alloc_bool(haxe_to_lua(v, l) != 0);
+	}
+	invalidhandle();
+	return val_false;
+}
+DEFINE_PRIM(luahx_haxe_to_lua, 2);
+
+static value luahx_lua_to_haxe(value inHandle, value idx)
+{
+	
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		return lua_value_to_haxe(l, val_int(idx));
+	}
+	invalidhandle();
+	return val_null;
+}
+DEFINE_PRIM(luahx_lua_to_haxe, 2);
 
 static void release_lua(value inHandle)
 {
@@ -230,45 +255,6 @@ static value lua_get_version()
 }
 DEFINE_PRIM(lua_get_version, 0);
 
-static value lua_load_libs(value inHandle, value inLibs)
-{
-	static const luaL_Reg lualibs[] = {
-		{ "base", luaopen_base },
-		{ "debug", luaopen_debug },
-		{ "io", luaopen_io },
-		{ "math", luaopen_math },
-		{ "os", luaopen_os },
-		{ "package", luaopen_package },
-		{ "string", luaopen_string },
-		{ "table", luaopen_table },
-		{ NULL, NULL }
-	};
-
-	lua_State *l = lua_from_handle(inHandle);
-	if (l)
-	{
-		int numLibs = val_array_size(inLibs);
-		value *libs = val_array_value(inLibs);
-
-		for (int i = 0; i < numLibs; i++)
-		{
-			const luaL_Reg *lib = lualibs;
-			for (;lib->func != NULL; lib++)
-			{
-				if (strcmp(val_string(libs[i]), lib->name) == 0)
-				{
-					// printf("loading lua library %s\n", lib->name);
-					luaL_requiref(l, lib->name, lib->func, 1);
-					lua_settop(l, 0);
-					break;
-				}
-			}
-		}
-	}
-	return alloc_null();
-}
-DEFINE_PRIM(lua_load_libs, 2);
-
 static value lua_load_context(value inHandle, value inContext)
 {
 	lua_State *l = lua_from_handle(inHandle);
@@ -280,7 +266,7 @@ static value lua_load_context(value inHandle, value inContext)
 			val_iter_fields(inContext, haxe_iter_global, l);
 		}
 	}
-	return alloc_null();
+	return val_null;
 }
 DEFINE_PRIM(lua_load_context, 2);
 
@@ -314,42 +300,416 @@ static value lua_call_function(value inHandle, value inFunction, value inArgs)
 			return v;
 		}
 	}
-	return alloc_null();
+	invalidhandle();
+	return val_null;
 }
 DEFINE_PRIM(lua_call_function, 3);
 
-static value lua_execute(value inHandle, value inScript)
+// lua functions wrapped with a handle thing :)
+
+static value luahx_gettop(value inHandle)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		return alloc_int(lua_gettop(l));
+	}
+	invalidhandle();
+	return alloc_int(-1);
+}
+DEFINE_PRIM(luahx_gettop, 1);
+
+static void luahx_openlibs(value inHandle)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		luaL_openlibs(l);
+		return;
+	}
+	invalidhandle();
+}
+DEFINE_PRIM(luahx_openlibs, 1);
+
+static void luahx_call(value inHandle, value nargs, value nresults)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		lua_call(l, val_int(nargs), val_int(nresults));
+		return;
+	}
+	invalidhandle();
+}
+DEFINE_PRIM(luahx_call, 3);
+
+static value luahx_pcall(value inHandle, value nargs, value nresults, value errfunc)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		return alloc_int(lua_pcall(l, val_int(nargs), val_int(nresults), val_int(errfunc)));
+	}
+	invalidhandle();
+	return alloc_int(LUA_ERRERR);
+}
+DEFINE_PRIM(luahx_pcall, 4);
+
+static value luahx_dofile(value inHandle, value inScript)
 {
 	value v;
 	lua_State *l = lua_from_handle(inHandle);
 	if (l)
 	{
-		// run the script
-		if (luaL_dostring(l, val_string(inScript)) == LUA_OK)
-		{
-			// convert the lua values to haxe
-			int lua_v;
-			while ((lua_v = lua_gettop(l)) != 0)
-			{
-				v = lua_value_to_haxe(l, lua_v);
-				lua_pop(l, 1);
-			}
-		}
-		else
-		{
-			// get error message
-			v = alloc_string(lua_tostring(l, -1));
-			lua_pop(l, 1);
-		}
-		return v;
+		return alloc_int(luaL_dofile(l, val_string(inScript)));
 	}
-	return alloc_null();
+	invalidhandle();
+	return alloc_int(LUA_ERRERR);
 }
-DEFINE_PRIM(lua_execute, 2);
+DEFINE_PRIM(luahx_dofile, 2);
+
+static value luahx_dostring(value inHandle, value inScript)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		return alloc_int(luaL_dostring(l, val_string(inScript)));
+	}
+	invalidhandle();
+	return alloc_int(LUA_ERRERR);
+}
+DEFINE_PRIM(luahx_dostring, 2);
+
+static void luahx_setglobal(value inHandle, value name)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		lua_setglobal(l, val_string(name));
+		return;
+	}
+	invalidhandle();
+}
+DEFINE_PRIM(luahx_setglobal, 2);
+
+static void luahx_getglobal(value inHandle, value name)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		lua_getglobal(l, val_string(name));
+		return;
+	}
+	invalidhandle();
+}
+DEFINE_PRIM(luahx_getglobal, 2);
+
+static void luahx_pop(value inHandle, value idx)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		lua_pop(l, val_int(idx));
+		return;
+	}
+	invalidhandle();
+}
+DEFINE_PRIM(luahx_pop, 2);
+
+static value luahx_isnumber(value inHandle, value idx)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		return alloc_bool(lua_isnumber(l, val_int(idx)) != 0);
+	}
+	invalidhandle();
+	return val_false;
+}
+DEFINE_PRIM(luahx_isnumber, 2);
+
+static value luahx_isstring(value inHandle, value idx)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		return alloc_bool(lua_isstring(l, val_int(idx)) != 0);
+	}
+	invalidhandle();
+	return val_false;
+}
+DEFINE_PRIM(luahx_isstring, 2);
+
+static value luahx_iscfunction(value inHandle, value idx)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		return alloc_bool(lua_iscfunction(l, val_int(idx)) != 0);
+	}
+	invalidhandle();
+	return val_false;
+}
+DEFINE_PRIM(luahx_iscfunction, 2);
+
+static value luahx_isuserdata(value inHandle, value idx)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		return alloc_bool(lua_isuserdata(l, val_int(idx)) != 0);
+	}
+	invalidhandle();
+	return val_false;
+}
+DEFINE_PRIM(luahx_isuserdata, 2);
+
+static value luahx_isfunction(value inHandle, value idx)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		return alloc_bool(lua_isfunction(l, val_int(idx)) != 0);
+	}
+	invalidhandle();
+	return val_false;
+}
+DEFINE_PRIM(luahx_isfunction, 2);
+
+static value luahx_istable(value inHandle, value idx)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		return alloc_bool(lua_istable(l, val_int(idx)) != 0);
+	}
+	invalidhandle();
+	return val_false;
+}
+DEFINE_PRIM(luahx_istable, 2);
+
+static value luahx_islightuserdata(value inHandle, value idx)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		return alloc_bool(lua_islightuserdata(l, val_int(idx)) != 0);
+	}
+	invalidhandle();
+	return val_false;
+}
+DEFINE_PRIM(luahx_islightuserdata, 2);
+
+static value luahx_isnil(value inHandle, value idx)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		return alloc_bool(lua_isnil(l, val_int(idx)) != 0);
+	}
+	invalidhandle();
+	return val_false;
+}
+DEFINE_PRIM(luahx_isnil, 2);
+
+static value luahx_isboolean(value inHandle, value idx)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		return alloc_bool(lua_isboolean(l, val_int(idx)) != 0);
+	}
+	invalidhandle();
+	return val_false;
+}
+DEFINE_PRIM(luahx_isboolean, 2);
+
+static value luahx_isthread(value inHandle, value idx)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		return alloc_bool(lua_isthread(l, val_int(idx)) != 0);
+	}
+	invalidhandle();
+	return val_false;
+}
+DEFINE_PRIM(luahx_isthread, 2);
+
+static value luahx_isnone(value inHandle, value idx)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		return alloc_bool(lua_isnone(l, val_int(idx)) != 0);
+	}
+	invalidhandle();
+	return val_false;
+}
+DEFINE_PRIM(luahx_isnone, 2);
+
+static value luahx_isnoneornil(value inHandle, value idx)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		return alloc_bool(lua_isnoneornil(l, val_int(idx)) != 0);
+	}
+	invalidhandle();
+	return val_false;
+}
+DEFINE_PRIM(luahx_isnoneornil, 2);
+
+static value luahx_type(value inHandle, value tp)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		return alloc_int(lua_type(l, val_int(tp)));
+	}
+	invalidhandle();
+	return alloc_int(LUA_TNONE);
+}
+DEFINE_PRIM(luahx_type, 2);
+
+static value luahx_typename(value inHandle, value tp)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		return alloc_string(lua_typename(l, val_int(tp)));
+	}
+	invalidhandle();
+	return val_null;
+}
+DEFINE_PRIM(luahx_typename, 2);
+
+static value luahx_tonumber(value inHandle, value idx)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		return alloc_float(lua_tonumber(l, val_int(idx)));
+	}
+	invalidhandle();
+	return alloc_float(0);
+}
+DEFINE_PRIM(luahx_tonumber, 2);
+
+static value luahx_tointeger(value inHandle, value idx)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		return alloc_int(lua_tointeger(l, val_int(idx)));
+	}
+	invalidhandle();
+	return alloc_int(0);
+}
+DEFINE_PRIM(luahx_tointeger, 2);
+
+static value luahx_toboolean(value inHandle, value idx)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		return alloc_bool(lua_toboolean(l, val_int(idx)) != 0);
+	}
+	invalidhandle();
+	return val_false;
+}
+DEFINE_PRIM(luahx_toboolean, 2);
+
+static value luahx_tostring(value inHandle, value idx)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		return alloc_string(lua_tostring(l, val_int(idx)));
+	}
+	invalidhandle();
+	return val_null;
+}
+DEFINE_PRIM(luahx_tostring, 2);
+
+static void luahx_createtable(value inHandle, value narray, value nrec)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		lua_createtable(l, val_int(narray), val_int(nrec));
+		return;	
+	}
+	invalidhandle();
+}
+DEFINE_PRIM(luahx_createtable, 3);
+
+static void luahx_settable(value inHandle, value idx)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		lua_settable(l, val_int(idx));
+		return;	
+	}
+	invalidhandle();
+}
+DEFINE_PRIM(luahx_settable, 2);
+
+static value luahx_next(value inHandle, value idx)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		return alloc_int(lua_next(l, val_int(idx)));
+	}
+	invalidhandle();
+	return alloc_int(0);
+}
+DEFINE_PRIM(luahx_next, 2);
+
+static void luahx_rawgeti(value inHandle, value idx, value n)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		lua_rawgeti(l, val_int(idx), val_int(n));
+		return;
+	}
+	invalidhandle();
+}
+DEFINE_PRIM(luahx_rawgeti, 3);
+
+// lual
+
+static value luahx_ref(value inHandle, value t)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		return alloc_int(luaL_ref(l, val_int(t)));
+	}
+	invalidhandle();
+	return alloc_int(0);
+}
+DEFINE_PRIM(luahx_ref, 2);
+
+static void luahx_unref(value inHandle, value t, value ref)
+{
+	lua_State *l = lua_from_handle(inHandle);
+	if (l)
+	{
+		luaL_unref(l, val_int(t), val_int(ref));
+		return;
+	}
+	invalidhandle();
+}
+DEFINE_PRIM(luahx_unref, 3);
 
 extern "C" void lua_main()
 {
-	kind_share(&kind_lua_vm, "lua::vm"); // Fix Neko init
+	// no neko no neko
+	//kind_share(&kind_lua_vm, "lua::vm"); // Fix Neko init
 }
 DEFINE_ENTRY_POINT(lua_main);
 

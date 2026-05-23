@@ -1,0 +1,4 @@
+-main TestLua
+-cpp bin
+-lib hx-lua
+-cmd bin/TestLua

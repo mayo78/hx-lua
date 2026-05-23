@@ -85,13 +85,6 @@ class TestLua extends haxe.unit.TestCase
 		}));
 	}
 
-	public function testMathLibrary()
-	{
-		var lua = new Lua();
-		lua.loadLibs(["math"]);
-		assertEquals(3, lua.execute("return math.floor(3.6)"));
-	}
-
 	public function testMultipleInstances()
 	{
 		var l1 = new Lua(),
@@ -134,6 +127,41 @@ end");
 
 		assertEquals(null, lua.call("fail", 3)); // fails due to missing function
 		assertEquals(null, lua.call("sub", { fail: 3 })); // fails due to wrong number of arguments
+	}
+
+	public static function testLuaThings()
+	{
+		var lua = new Lua();
+		
+		// easy and safe
+		Lua.lua_pushboolean(lua.handle, true);
+		Lua.lua_setglobal(lua.handle, "boolean");
+		assertEquals(true, lua.execute("return boolean"));
+
+		Lua.lua_pushnumber(lua.handle, 1.5);
+		Lua.lua_setglobal(lua.handle, "number");
+		assertEquals(1.5, lua.execute("return boolean"));
+
+		Lua.lua_pushstring(lua.handle, "a string");
+		Lua.lua_setglobal(lua.handle, "str");
+		assertEquals("a string", lua.execute("return str"));
+
+		// scary
+		Lua.haxe_to_lua(lua.handle, [12, 13, 14]);
+		Lua.lua_setglobal(lua.handle, "arr");
+		assertEquals(13, lua.execute("return arr[2]"));
+
+		Lua.haxe_to_lua(lua.handle, {value: "yes"});
+		Lua.lua_setglobal(lua.handle, "t");
+		assertEquals("yes", lua.execute("return t.value"));
+		
+		Lua.haxe_to_lua(lua.handle, function() return 1);
+		Lua.lua_setglobal(lua.handle, "func");
+		assertEquals(1, lua.execute("return func()"));
+		
+		Lua.haxe_to_lua(lua.handle, function(inp:String) return 'inp: $inp');
+		Lua.lua_setglobal(lua.handle, "funcargs");
+		assertEquals('inp: good', lua.execute("return funcargs 'good'"));
 	}
 
 	public static function main()

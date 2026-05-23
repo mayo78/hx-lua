@@ -1,10 +1,11 @@
 {
-  "name": "lua",
+  "name": "hx-lua",
   "url": "https://github.com/MattTuttle/hx-lua",
   "license": "MIT",
   "tags": ["lua", "extension"],
   "description": "Simple lua binding in a haxe extension",
   "version": "0.1.0",
   "releasenote": "Initial version",
-  "contributors": ["heardtheword"]
+  "contributors": ["heardtheword"],
+  "classPath": "source/"
 }
