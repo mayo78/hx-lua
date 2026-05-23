@@ -10,11 +10,8 @@
 #include <cmath>
 #include <cstring>
 
-extern "C" {
-	#include "lua.h"
-	#include "lauxlib.h"
-	#include "lualib.h"
-}
+
+#include "../lua/src/lua.hpp"
 
 vkind kind_lua_vm;
 

@@ -12,45 +12,6 @@
 		<file name="common/ExternalInterface.cpp"/>
 	</files>
 
-	<files id="lua">
-		<compilerflag value="-Ilua"/>
-		<file name="lua/lapi.c" />
-		<file name="lua/lcode.c" />
-		<file name="lua/lctype.c" />
-		<file name="lua/ldebug.c" />
-		<file name="lua/ldo.c" />
-		<file name="lua/ldump.c" />
-		<file name="lua/lfunc.c" />
-		<file name="lua/lgc.c" />
-		<file name="lua/llex.c" />
-		<file name="lua/lmem.c" />
-		<file name="lua/lobject.c" />
-		<file name="lua/lopcodes.c" />
-		<file name="lua/lparser.c" />
-		<file name="lua/lstate.c" />
-		<file name="lua/lstring.c" />
-		<file name="lua/ltable.c" />
-		<file name="lua/ltm.c" />
-		<file name="lua/lundump.c" />
-		<file name="lua/lvm.c" />
-		<file name="lua/lzio.c" />
-	</files>
-
-	<files id="lua-libs">
-		<file name="lua/lauxlib.c" />
-		<file name="lua/lbaselib.c" />
-		<file name="lua/lmathlib.c" />
-		<file name="lua/lstrlib.c" />
-		<file name="lua/ltablib.c" />
-		<file name="lua/lbitlib.c" />
-		<file name="lua/lcorolib.c" />
-		<file name="lua/ldblib.c" />
-		<file name="lua/liolib.c" />
-		<file name="lua/loslib.c" />
-		<file name="lua/loadlib.c" />
-		<file name="lua/linit.c" />
-	</files>
-
 	<set name="name_prefix" value="lib" if="iphone"/>
 	<set name="ARM_ARCH" value="-v7" if="HXCPP_ARMV7"/>
 	<set name="name_extra" value=".iphoneos${ARM_ARCH}" if="iphoneos"/>
@@ -67,9 +28,25 @@
 	<target id="NDLL" output="${name_prefix}hxlua${debug_extra}${name_extra}" tool="linker" toolid="${ndll-tool}">
 		<outdir name="../ndll/${BINDIR}"/>
 		<ext value=".ndll" unless="mobile"/>
-		<files id="lua"/>
-		<files id="lua-libs"/>
 		<files id="common"/>
+		
+        <section if="windows">
+            <lib name='lua/lib/Windows64/lua51.lib' if='HXCPP_M64' />
+            <lib name='lua/lib/Windows/lua51.lib' if='HXCPP_M32' />
+        </section>
+        <section if="linux">
+            <lib name='/lua/lib/Linux64/libluajit.so' if='HXCPP_M64' />
+            <!-- <lib name='/lua/lib/Linux/libluajit.so' if='HXCPP_M32' /> -->
+        </section>
+        <section if="mac">
+            <lib name='/lua/lib/Mac/libluajit-5.1.a' if='HXCPP_M64' />
+            <!-- <lib name='/lua/lib/Mac/libluajit-5.1.a' if='HXCPP_M32' /> -->
+        </section>
+        <section if="android">
+            <lib name='/lua/Android/libluajit-v7.so' if='HXCPP_ARMV7' />
+            <lib name='/lua/Android/libluajit-x86.so' if='HXCPP_X86' />
+            <lib name='/lua/Android/libluajit-64.so' if='HXCPP_ARM64' />
+        </section>
 	</target>
 
 	<target id="default">
