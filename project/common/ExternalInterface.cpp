@@ -41,6 +41,14 @@ DEFINE_PRIM(setHaxeTrace, 1);
 #define trace(s) val_call1(haxe_trace, alloc_string(s));
 #define push(arr, v) val_call1(val_field(arr, pushID), v);
 
+#ifndef max
+#define max(a,b)            (((a) > (b)) ? (a) : (b))
+#endif
+
+#ifndef min
+#define min(a,b)            (((a) < (b)) ? (a) : (b))
+#endif
+
 // from FlxMath
 inline double fastSin(double n)
 {

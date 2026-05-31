@@ -1,8 +1,5 @@
 #include "Utils.h"
 
-#include <Math.h>
-
-
 
 namespace utils
 {
