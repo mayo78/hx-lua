@@ -100,8 +100,10 @@ inline double bound(double x, double a, double b)
 inline void rotate(double &x, double &y, double degrees)
 {
 	const double radians = degrees * TO_RAD;
-	x = (x * fastCos(radians)) - (y * fastSin(radians));
-	y = (x * fastSin(radians)) + (y * fastCos(radians));
+	float xx = x;
+	float yy = y;
+	x = (xx * fastCos(radians)) - (yy * fastSin(radians));
+	y = (xx * fastSin(radians)) + (yy * fastCos(radians));
 }
 
 inline double SCALE(double value, double start1, double stop1, double start2, double stop2)
@@ -113,8 +115,8 @@ inline double SCALE(double value, double start1, double stop1, double start2, do
 inline void rotate3(double &x, double &y, double &z, double xa, double ya, double za)
 {
 	rotate(x, y, za);
-	//rotate(z, y, xa);
-	//rotate(x, z, ya);
+	rotate(z, y, xa);
+	rotate(x, z, ya);
 }
 
 inline value lua_table_to_haxe(lua_State *l, int lua_v)
@@ -1059,6 +1061,19 @@ static void setCurTempGraphic(value graphic)
 }
 DEFINE_PRIM(setCurTempGraphic, 1);
 
+static bool downscroll;
+static double screenWidth;
+static double screenHeight;
+static double screenHeightHalf;
+static void setDownscroll(value ds, value sw, value sh)
+{
+	downscroll = val_bool(ds);
+	screenWidth = val_float(sw);
+	screenHeight = val_float(sh);
+	screenHeightHalf = screenHeight * .5;
+}
+DEFINE_PRIM(setDownscroll, 3);
+
 static value X_AXIS;
 static value Y_AXIS;
 static value Z_AXIS;
@@ -1153,10 +1168,10 @@ static inline void transformVertex(double &vx, double &vy, double &vz, double x,
 	vx *= scaleX * zx;
 	vy *= scaleY * zy;
 
+	rotate3(vx, vy, vz, rx, ry, rz);
+
 	vx -= offsetX * zx;
 	vy -= offsetY * zy;
-
-	rotate3(vx, vy, vz, rx, ry, rz);
 
 	vx += originX;
 	vy += originY;
@@ -1216,6 +1231,13 @@ static inline void transformVertex(double &vx, double &vy, double &vz, double x,
 
 	vx += playFieldX;
 	vy += playFieldY;
+
+	if (downscroll)
+	{
+		vy -= screenHeightHalf;
+		vy = -vy;
+		vy += screenHeightHalf;
+	}
 }
 //
 #define pushPos(vvx, vvy, vvz, u, v) \
@@ -1237,6 +1259,9 @@ static inline void transformVertex(double &vx, double &vy, double &vz, double x,
 static value *batchArgs = new value[6];
 static inline void renderSprite(double setPos, value sprite, double x,double y,double z, double rx,double ry,double rz, double zx,double zy,double zz, double sx,double sy, double scalex, double scaley, double originX, double originY, double offsetX, double offsetY)
 {
+	// add sprite angle
+	rz += val_float(val_field(sprite, angleID));
+
 	const value frame = val_field(sprite, frameID);
 	const value frameRect = val_field(frame, frameID);
 	const value frameOffset = val_field(frame, offsetID);
@@ -1247,7 +1272,7 @@ static inline void renderSprite(double setPos, value sprite, double x,double y,d
 	batchArgs[2] = val_false; // colored
 	batchArgs[3] = val_null; // blend
 	batchArgs[4] = val_false; // hasColorOffsets
-	batchArgs[5] = val_null; // shader
+	batchArgs[5] = val_field(sprite, shaderID); // shader
 
 	const value drawItem = val_callN(val_field(cur_camera, startTrianglesBatchID), batchArgs, 6);
 	
@@ -1276,8 +1301,8 @@ static inline void renderSprite(double setPos, value sprite, double x,double y,d
 
 	const value uvLeft = val_field(uv, xID);
 	const value uvRight = val_field(uv, widthID);
-	const value uvTop = val_field(uv, yID);
-	const value uvBottom = val_field(uv, heightID);
+	const value uvTop = val_field(uv, downscroll ? heightID : yID);
+	const value uvBottom = val_field(uv, downscroll ? yID : heightID);
 
 	const double frameWidth = val_float(val_field(frameRect, widthID));
 	const double frameHeight = val_float(val_field(frameRect, heightID));
@@ -1723,18 +1748,6 @@ static void renderHoldCovers(value holdCover)
 	renderReceptorAttachment(holdCover, col);
 }
 DEFINE_PRIM(renderHoldCovers, 1);
-
-static void renderHoldSplashes(value splash)
-{
-
-}
-DEFINE_PRIM(renderHoldSplashes, 1);
-
-static void renderNoteSplashes(value splash)
-{
-
-}
-DEFINE_PRIM(renderNoteSplashes, 1);
 
 extern "C" void lua_main()
 {
