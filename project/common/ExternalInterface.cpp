@@ -1257,7 +1257,7 @@ static inline void transformVertex(double &vx, double &vy, double &vz, double x,
 } \
 
 static value *batchArgs = new value[6];
-static inline void renderSprite(double setPos, value sprite, double x,double y,double z, double rx,double ry,double rz, double zx,double zy,double zz, double sx,double sy, double scalex, double scaley, double originX, double originY, double offsetX, double offsetY)
+static inline void renderSprite(double setPos, value sprite, double x,double y,double z, double rx,double ry,double rz, double zx,double zy,double zz, double sx,double sy, double alpha,double glow, double scalex, double scaley, double originX, double originY, double offsetX, double offsetY)
 {
 	// add sprite angle
 	rz += val_float(val_field(sprite, angleID));
@@ -1269,9 +1269,9 @@ static inline void renderSprite(double setPos, value sprite, double x,double y,d
 
 	batchArgs[0] = graphic; // graphic
 	batchArgs[1] = val_field(sprite, antialiasingID); // smoothing
-	batchArgs[2] = val_false; // colored
+	batchArgs[2] = val_true; // colored
 	batchArgs[3] = val_null; // blend
-	batchArgs[4] = val_false; // hasColorOffsets
+	batchArgs[4] = val_true; // hasColorOffsets
 	batchArgs[5] = val_field(sprite, shaderID); // shader
 
 	const value drawItem = val_callN(val_field(cur_camera, startTrianglesBatchID), batchArgs, 6);
@@ -1286,14 +1286,14 @@ static inline void renderSprite(double setPos, value sprite, double x,double y,d
 	value colorMultipliers = val_field(drawItem, colorMultipliersID);
 	value colorOffsets = val_field(drawItem, colorOffsetsID);
 
-	//if (!colorMultipliers)
-	//{
-	//	colorMultipliers = alloc_array(0);
-	//	colorOffsets = alloc_array(0);
+	if (!colorMultipliers)
+	{
+		colorMultipliers = alloc_array(0);
+		colorOffsets = alloc_array(0);
 
-	//	alloc_field(drawItem, colorMultipliersID, colorMultipliers);
-	//	alloc_field(drawItem, colorOffsetsID, colorOffsets);
-	//}
+		alloc_field(drawItem, colorMultipliersID, colorMultipliers);
+		alloc_field(drawItem, colorOffsetsID, colorOffsets);
+	}
 
 	const value alphas = val_field(drawItem, alphasID);
 
@@ -1352,12 +1352,12 @@ static inline void renderSprite(double setPos, value sprite, double x,double y,d
 
 	for (int o = 0; o < 6; o++)
 	{
-		val_array_push(alphas, val_field(cur_camera, alphaID));
-		//for (int oo = 0; oo < 4; oo++)
-		//{
-		//	push(colorMultipliers, alloc_float(1.0));
-		//	push(colorOffsets, alloc_float(0.0));
-		//}
+		val_array_push(alphas, alloc_float(alpha * val_float(val_field(cur_camera, alphaID))));
+		for (int oo = 0; oo < 4; oo++)
+		{
+			push(colorMultipliers, alloc_float(1.0));
+			push(colorOffsets, alloc_float((oo == 3) ? .0 : glow * 255.));
+		}
 	}
 }
 
@@ -1450,7 +1450,7 @@ static void renderReceptorAttachment(value sprite, int col)
 	const lua_Number alp = lua_tonumber(cur_l, -1);
 	lua_pop(cur_l, 1);
 	// prepare draw item
-	renderSprite(true, sprite, x,y,z, rx,ry,rz, zx,zy,zz, sx,sy, scalex, scaley, originX, originY, offsetX, offsetY);
+	renderSprite(true, sprite, x,y,z, rx,ry,rz, zx,zy,zz, sx,sy, alp,.0, scalex, scaley, originX, originY, offsetX, offsetY);
 }
 
 static void renderReceptors(value receptor)
@@ -1711,7 +1711,7 @@ static void renderArrows(value note)
 	getPosition(fYOffset, col, x,y,z, rx,ry,rz, zx,zy,zz, sx,sy);
 
 	lua_getglobal(cur_l, "arrowAlphaGlow");
-	lua_pushnumber(cur_l, distance);
+	lua_pushnumber(cur_l, y);
 	lua_pushnumber(cur_l, col);
 	lua_pushnumber(cur_l, cur_pn);
 
@@ -1723,10 +1723,8 @@ static void renderArrows(value note)
 
 	const double scalex = val_float(val_field(scale, xID));
 	const double scaley = val_float(val_field(scale, yID));
-
-	const double colorOffset = glow * 255.0;
 	
-	renderSprite(false, note, x,y,z, rx,ry,rz, zx,zy,zz, sx,sy, scalex, scaley, originX, originY, offsetX, offsetY);
+	renderSprite(false, note, x,y,z, rx,ry,rz, zx,zy,zz, sx,sy, alp,glow, scalex, scaley, originX, originY, offsetX, offsetY);
 }
 DEFINE_PRIM(renderArrows, 1);
 
