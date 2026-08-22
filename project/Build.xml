@@ -35,17 +35,17 @@
             <lib name='lua/lib/Windows/lua51.lib' if='HXCPP_M32' />
         </section>
         <section if="linux">
-            <lib name='/lua/lib/Linux64/libluajit.so' if='HXCPP_M64' />
+            <lib name='lua/lib/Linux64/libluajit.so' if='HXCPP_M64' />
             <!-- <lib name='/lua/lib/Linux/libluajit.so' if='HXCPP_M32' /> -->
         </section>
         <section if="mac">
-            <lib name='/lua/lib/Mac/libluajit-5.1.a' if='HXCPP_M64' />
+            <lib name='lua/lib/Mac/libluajit-5.1.a' if='HXCPP_M64' />
             <!-- <lib name='/lua/lib/Mac/libluajit-5.1.a' if='HXCPP_M32' /> -->
         </section>
         <section if="android">
-            <lib name='/lua/Android/libluajit-v7.so' if='HXCPP_ARMV7' />
-            <lib name='/lua/Android/libluajit-x86.so' if='HXCPP_X86' />
-            <lib name='/lua/Android/libluajit-64.so' if='HXCPP_ARM64' />
+            <lib name='lua/Android/libluajit-v7.so' if='HXCPP_ARMV7' />
+            <lib name='lua/Android/libluajit-x86.so' if='HXCPP_X86' />
+            <lib name='lua/Android/libluajit-64.so' if='HXCPP_ARM64' />
         </section>
 	</target>
 
