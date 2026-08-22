@@ -233,10 +233,14 @@ class Lua
 
 	private static function load(func:String, numArgs:Int):Dynamic
 	{
+		#if cpp
 		final f = Lib.load("hxlua", func, numArgs);
 		if (f == null)
 			throw "Primitive " + func + " not found";
 		return f;
+		#else
+		return null;
+		#end
 	}
 
 	public function toLua(value:Dynamic):Bool
@@ -275,26 +279,7 @@ class Lua
 				return toHaxeObj(idx);
 			case LUA_TFUNCTION:
 				var ref = luaL_ref(l, LUA_REGISTRYINDEX);
-				return Reflect.makeVarArgs(
-					function(inp:Array<Dynamic>):Dynamic 
-					{
-						lua_rawgeti(l, LUA_REGISTRYINDEX, ref);
-						if (lua_isfunction(l, -1)) 
-						{
-							for (i in inp) 
-							{
-								if (!toLua(i))
-									toLua(null);
-							}
-							lua_call(l, inp.length, 1);
-							final out = fromLua(-1);
-							lua_pop(l, 1);
-							return out;
-						}
-						luaL_unref(l, LUA_REGISTRYINDEX, ref);
-						return null;
-					}
-				);
+				return new LuaCallback(this, ref);
 			default:
 				trace('[ERROR] Lua value (${typeToString(vtype)}) not supported');
 				return null;
